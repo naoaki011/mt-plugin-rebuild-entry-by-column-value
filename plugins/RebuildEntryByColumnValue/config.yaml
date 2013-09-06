@@ -31,11 +31,34 @@ tags:
                         $params->{ class } = $class;
                         $params->{ $column } = $eq;
                         $params->{ status } = MT::Entry::RELEASE();
-                        my @entries = MT::Entry->load( $params );
+
+                        my $args = {};
+                        if ( $column =~ /^field\./ ) {
+                            my $target_class = MT->model( $class );
+                            my $meta_class = $target_class->meta_pkg;
+                            my $meta_pk = $meta_class->primary_key_tuple->[ 0 ];
+                            my $meta_id_cond = '= ' . $meta_pk;
+                            my $meta_rec = MT::Meta->metadata_by_name( $target_class, $column );
+                            my $meta_col = $meta_rec->{ type };
+                            $args->{ 'join' } = 
+                                $meta_class->join_on(
+                                                undef,
+                                                {
+                                                    $meta_pk => \$meta_id_cond,
+                                                    type => $column,
+                                                    $meta_col => $eq,
+                                                },
+                                            ),
+                            delete $params->{ $column };
+                        }
+                        my @entries = MT::Entry->load( $params, $args );
+
                         require MT::WeblogPublisher;
-                        my $pub = MT::WeblogPublisher->new;
                         for my $entry ( @entries ) {
-                            $pub->rebuild_entry( Blog => $entry->blog, Entry => $entry->id );
+                            my $pub = MT::WeblogPublisher->new;
+                            $pub->rebuild_entry( Blog => $entry->blog, Entry => $entry->id, Force => 1, );
+                            MT->instance->request( '__cached_maps', {} );
+                            MT->instance->request( '__published:' . $entry->blog_id, {} );
                         }
                         return '';
                     }

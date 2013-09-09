@@ -11,12 +11,19 @@ tags:
                 sub {
                         my ( $ctx, $args, $cond ) = @_;
                         my $app = MT->instance;
+                        my $blog_id = $args->{ blog_id };
                         if ( ref( $app ) =~ /^MT::App/ ) {
                             return if ( $app->mode =~ /preview/ );
-                        }
-                        my $blog_id = $args->{ blog_id };
-                        if (! $blog_id ) {
-                            $blog_id = $app->blog->id;
+                            if (! $blog_id ) {
+                                $blog_id = $app->blog->id
+                                  or return '';
+                            }
+                        } else {
+                            my $current_blog = $ctx->stash( 'blog' );
+                            if (! $blog_id ) {
+                                $blog_id = $current_blog->id
+                                  or return'';
+                            }
                         }
                         if ( $blog_id eq 'all' ) {
                             $blog_id = undef;
